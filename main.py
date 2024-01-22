@@ -40,12 +40,22 @@ def get_city_name(polygon: Polygon, cities_df: gpd.GeoDataFrame):
     return city
 
 
+def get_country(polygon: Polygon, countries_df: gpd.GeoDataFrame):
+    country = {}
+    gdf = gpd.GeoDataFrame(index=[0], crs='epsg:4326', geometry=[polygon])
+    country["country"] = countries_df.sjoin(gdf, how="right", predicate="intersects")["adm0_a3"].fillna("").tolist()
+
+    return country
+
 def main():
     cities_df = gpd.read_file("cities.geojson")
     cities_df = cities_df.to_crs(5070)
 
     cities_df['geometry'] = cities_df['geometry'].buffer(500)
     cities_df = cities_df.to_crs(4326)
+
+    countries_df = gpd.read_file("countries.json")
+    countries_df = countries_df[["adm0_a3", "geometry"]]    
     
     with open("ddpi.geojson") as f:
         data = json.load(f)
@@ -54,6 +64,7 @@ def main():
         data["features"][i]["properties"] = {}
         data["features"][i]["properties"]["h3_cells"] = compute_polygon(shape(data["features"][i]["geometry"]))
         data["features"][i]["properties"]["city"] = get_city_name(shape(data["features"][i]["geometry"]), cities_df)
+        data["features"][i]["properties"]["country"] = get_country(shape(data["features"][i]["geometry"]), countries_df)
 
     with open("ddpi_v2.geojson", "w") as f:
         json.dump(data, f)
